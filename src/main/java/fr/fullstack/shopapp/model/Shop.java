@@ -36,6 +36,7 @@ public class Shop {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Field(type = FieldType.Long)
     private long id;
 
     @Column(nullable = false)

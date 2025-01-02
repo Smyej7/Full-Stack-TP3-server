@@ -2,7 +2,7 @@ package fr.fullstack.shopapp.service;
 
 import fr.fullstack.shopapp.model.LocalizedProduct;
 import fr.fullstack.shopapp.model.Product;
-import fr.fullstack.shopapp.repository.ProductRepository;
+import fr.fullstack.shopapp.repository.jpa.ProductRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;

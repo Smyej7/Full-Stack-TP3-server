@@ -2,7 +2,8 @@ package fr.fullstack.shopapp.service;
 
 import fr.fullstack.shopapp.model.Product;
 import fr.fullstack.shopapp.model.Shop;
-import fr.fullstack.shopapp.repository.ShopRepository;
+import fr.fullstack.shopapp.repository.elastic.ShopElasticRepository;
+import fr.fullstack.shopapp.repository.jpa.ShopRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,9 @@ public class ShopService {
     @Autowired
     private ShopRepository shopRepository;
 
+    @Autowired
+    private ShopElasticRepository shopElasticRepository;
+
     @Transactional
     public Shop createShop(Shop shop) throws Exception {
         try {
@@ -30,6 +34,7 @@ public class ShopService {
             // Refresh the entity after the save. Otherwise, @Formula does not work.
             em.flush();
             em.refresh(newShop);
+            shopElasticRepository.save(newShop);
             return newShop;
         } catch (Exception e) {
             throw new Exception(e.getMessage());
@@ -57,6 +62,7 @@ public class ShopService {
     }
 
     public Page<Shop> getShopList(
+            Optional<String> name,
             Optional<String> sortBy,
             Optional<Boolean> inVacations,
             Optional<String> createdBefore,
@@ -76,7 +82,7 @@ public class ShopService {
         }
 
         // FILTERS
-        Page<Shop> shopList = getShopListWithFilter(inVacations, createdBefore, createdAfter, pageable);
+        Page<Shop> shopList = getShopListWithFilter(name, inVacations, createdBefore, createdAfter, pageable);
         if (shopList != null) {
             return shopList;
         }
@@ -114,11 +120,21 @@ public class ShopService {
     }
 
     private Page<Shop> getShopListWithFilter(
+            Optional<String> name,
             Optional<Boolean> inVacations,
             Optional<String> createdAfter,
             Optional<String> createdBefore,
             Pageable pageable
     ) {
+        if (name.isPresent()) {
+            LocalDate after; LocalDate before;
+            after = createdAfter.map(LocalDate::parse).orElse(LocalDate.EPOCH);
+            before = createdBefore.map(LocalDate::parse).orElse(LocalDate.EPOCH.plusYears(90));
+            if (inVacations.isEmpty()) {
+                inVacations = Optional.of(false);
+            }
+            return shopElasticRepository.findAllByNameContainingAndCreatedAtAfterAndCreatedAtBeforeAndInVacationsEquals(name.get(), after, before, inVacations.get(), pageable);
+        }
         if (inVacations.isPresent() && createdBefore.isPresent() && createdAfter.isPresent()) {
             return shopRepository.findByInVacationsAndCreatedAtGreaterThanAndCreatedAtLessThan(
                     inVacations.get(),
