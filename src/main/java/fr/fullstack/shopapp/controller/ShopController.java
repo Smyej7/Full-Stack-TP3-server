@@ -3,10 +3,15 @@ package fr.fullstack.shopapp.controller;
 import fr.fullstack.shopapp.model.Shop;
 import fr.fullstack.shopapp.service.ShopService;
 import fr.fullstack.shopapp.util.ErrorValidation;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,93 +29,89 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.validation.Valid;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/shops")
+@Tag(name = "Shop Management", description = "APIs for managing shops")
 public class ShopController {
     // TODO ADD PLAIN TEXT SEARCH FOR SHOP
     @Autowired
     private ShopService service;
 
-    @ApiOperation(value = "Create a shop")
+    @Operation(summary = "Create a shop", description = "Create a new shop")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Shop created successfully",
+                    content = {@Content(mediaType = "application/json",
+                            schema = @Schema(implementation = Shop.class))}),
+            @ApiResponse(responseCode = "400", description = "Invalid input")
+    })
     @PostMapping
-    public ResponseEntity<Shop> createShop(@Valid @RequestBody Shop shop, Errors errors) {
+    public ResponseEntity<Shop> createShop(@Valid @RequestBody Shop shop, Errors errors) throws Exception {
         if (errors.hasErrors()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, ErrorValidation.getErrorValidationMessage(errors));
         }
 
-        try {
-            return ResponseEntity.ok(service.createShop(shop));
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
+        return ResponseEntity.ok(service.createShop(shop));
     }
 
-    @ApiOperation(value = "Delete a shop by its id")
-    @DeleteMapping("/{id}")
-    public HttpStatus deleteShop(@PathVariable long id) {
-        try {
-            service.deleteShopById(id);
-            return HttpStatus.NO_CONTENT;
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
-    }
-
-    @ApiOperation(value = "Get shops (sorting and filtering are possible)")
-    @GetMapping
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "page",
-                              dataType = "integer",
-                              paramType = "query",
-                              value = "Results page you want to retrieve (0..N)",
-                              defaultValue = "0"),
-            @ApiImplicitParam(name = "size", dataType = "integer", paramType = "query",
-                              value = "Number of records per page", defaultValue = "5"),
+    @Operation(summary = "Delete a shop by id", description = "Delete a shop")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Shop deleted successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid id supplied")
     })
-    public ResponseEntity<Page<Shop>> getAllShops(
-            Pageable pageable,
-            @ApiParam(value = "To sort the shops. Possible values are 'name', 'nbProducts' and 'createdAt'",
-                      example = "name")
-            @RequestParam(required = false) Optional<String> sortBy,
-            @ApiParam(value = "Define that the shops must be in vacations or not", example = "true")
-            @RequestParam(required = false) Optional<Boolean> inVacations,
-            @ApiParam(value = "Define that the shops must be created after this date", example = "2022-11-15")
-            @RequestParam(required = false) Optional<String> createdAfter,
-            @ApiParam(value = "Define that the shops must be created before this date", example = "2022-11-15")
-            @RequestParam(required = false) Optional<String> createdBefore
+    @DeleteMapping("/{id}")
+    public HttpStatus deleteShop(@PathVariable long id) throws Exception {
+        service.deleteShopById(id);
+        return HttpStatus.NO_CONTENT;
+    }
 
-    ) {
+    @Operation(summary = "Get all shops", description = "Get shops with pagination with optional filtering and sorting")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Shops retrieved successfully",
+                    content = {@Content(mediaType = "application/json",
+                    schema = @Schema(implementation = Page.class))})
+    })
+    @GetMapping
+    public ResponseEntity<Page<Shop>> getAllShops(
+            @ParameterObject Pageable pageable,
+            @Parameter(description = "Sort shops by field") @RequestParam Optional<String> sortBy,
+            @Parameter(description = "Filter shops based on vacation status") @RequestParam Optional<Boolean> inVacations,
+            @Parameter(description = "Filter shops created after a date (YYYY-MM-DD)") @RequestParam Optional<String> createdAfter,
+            @Parameter(description = "Filter shops created before a date (YYYY-MM-DD)") @RequestParam Optional<String> createdBefore) {
+
         return ResponseEntity.ok(
                 service.getShopList(sortBy, inVacations, createdAfter, createdBefore, pageable)
         );
     }
 
-    @ApiOperation(value = "Get a shop by id")
+    @Operation(summary = "Get a shop by id", description = "Get a shop by id")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Shop found",
+                    content = {@Content(mediaType = "application/json",
+                            schema = @Schema(implementation = Shop.class))}),
+            @ApiResponse(responseCode = "404", description = "Shop not found")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<Shop> getShopById(@PathVariable long id) {
-        try {
-            return ResponseEntity.ok().body(service.getShopById(id));
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
+    public ResponseEntity<Shop> getShopById(@PathVariable long id) throws Exception {
+        return ResponseEntity.ok().body(service.getShopById(id));
     }
 
-    @ApiOperation(value = "Update a shop")
+    @Operation(summary = "Update a shop", description = "Update a shop")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Shop updated successfully",
+                    content = {@Content(mediaType = "application/json",
+                    schema = @Schema(implementation = Shop.class))}),
+            @ApiResponse(responseCode = "400", description = "Invalid input")
+    })
     @PutMapping
-    public ResponseEntity<Shop> updateShop(@Valid @RequestBody Shop shop, Errors errors) {
+    public ResponseEntity<Shop> updateShop(@Valid @RequestBody Shop shop, Errors errors) throws Exception {
         if (errors.hasErrors()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, ErrorValidation.getErrorValidationMessage(errors));
         }
 
-        try {
-            return ResponseEntity.ok().body(service.updateShop(shop));
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
+        return ResponseEntity.ok().body(service.updateShop(shop));
     }
 }
