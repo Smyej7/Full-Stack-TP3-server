@@ -1,23 +1,27 @@
 package fr.fullstack.shopapp.service;
 
+import fr.fullstack.shopapp.model.OpeningHoursShop;
 import fr.fullstack.shopapp.model.Product;
 import fr.fullstack.shopapp.model.Shop;
 import fr.fullstack.shopapp.repository.elastic.ShopElasticRepository;
 import fr.fullstack.shopapp.repository.jpa.ShopRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ShopService {
+
+    // Dependencies
     @PersistenceContext
     private EntityManager em;
 
@@ -27,11 +31,13 @@ public class ShopService {
     @Autowired
     private ShopElasticRepository shopElasticRepository;
 
+    // Public API
+
     @Transactional
     public Shop createShop(Shop shop) throws Exception {
+        checkForOverlap(shop.getOpeningHours());
         try {
             Shop newShop = shopRepository.save(shop);
-            // Refresh the entity after the save. Otherwise, @Formula does not work.
             em.flush();
             em.refresh(newShop);
             shopElasticRepository.save(newShop);
@@ -45,7 +51,6 @@ public class ShopService {
     public void deleteShopById(long id) throws Exception {
         try {
             Shop shop = getShop(id);
-            // delete nested relations with products
             deleteNestedRelations(shop);
             shopRepository.deleteById(id);
         } catch (Exception e) {
@@ -69,26 +74,11 @@ public class ShopService {
             Optional<String> createdAfter,
             Pageable pageable
     ) {
-        // SORT
         if (sortBy.isPresent()) {
-            switch (sortBy.get()) {
-                case "name":
-                    return shopRepository.findByOrderByNameAsc(pageable);
-                case "createdAt":
-                    return shopRepository.findByOrderByCreatedAtAsc(pageable);
-                default:
-                    return shopRepository.findByOrderByNbProductsAsc(pageable);
-            }
+            return getSortedShops(sortBy.get(), pageable);
         }
-
-        // FILTERS
-        Page<Shop> shopList = getShopListWithFilter(name, inVacations, createdBefore, createdAfter, pageable);
-        if (shopList != null) {
-            return shopList;
-        }
-
-        // NONE
-        return shopRepository.findByOrderByIdAsc(pageable);
+        Page<Shop> filteredShops = getShopListWithFilter(name, inVacations, createdBefore, createdAfter, pageable);
+        return filteredShops != null ? filteredShops : shopRepository.findByOrderByIdAsc(pageable);
     }
 
     @Transactional
@@ -101,22 +91,31 @@ public class ShopService {
         }
     }
 
+    // Private Utility Methods
+
     private void deleteNestedRelations(Shop shop) {
         List<Product> products = shop.getProducts();
-        for (int i = 0; i < products.size(); i++) {
-            Product product = products.get(i);
+        for (Product product : products) {
             product.setShop(null);
             em.merge(product);
-            em.flush();
         }
+        em.flush();
     }
 
     private Shop getShop(Long id) throws Exception {
-        Optional<Shop> shop = shopRepository.findById(id);
-        if (!shop.isPresent()) {
-            throw new Exception("Shop with id " + id + " not found");
+        return shopRepository.findById(id)
+                .orElseThrow(() -> new Exception("Shop with id " + id + " not found"));
+    }
+
+    private Page<Shop> getSortedShops(String sortBy, Pageable pageable) {
+        switch (sortBy) {
+            case "name":
+                return shopRepository.findByOrderByNameAsc(pageable);
+            case "createdAt":
+                return shopRepository.findByOrderByCreatedAtAsc(pageable);
+            default:
+                return shopRepository.findByOrderByNbProductsAsc(pageable);
         }
-        return shop.get();
     }
 
     private Page<Shop> getShopListWithFilter(
@@ -127,20 +126,26 @@ public class ShopService {
             Pageable pageable
     ) {
         if (name.isPresent()) {
-            LocalDate after; LocalDate before;
-            after = createdAfter.map(LocalDate::parse).orElse(LocalDate.EPOCH);
-            before = createdBefore.map(LocalDate::parse).orElse(LocalDate.EPOCH.plusYears(90));
-            if (inVacations.isEmpty()) {
-                inVacations = Optional.of(false);
-            }
-            return shopElasticRepository.findAllByNameContainingAndCreatedAtAfterAndCreatedAtBeforeAndInVacationsEquals(name.get(), after, before, inVacations.get(), pageable);
+            LocalDate after = createdAfter.map(LocalDate::parse).orElse(LocalDate.EPOCH);
+            LocalDate before = createdBefore.map(LocalDate::parse).orElse(LocalDate.EPOCH.plusYears(90));
+            boolean inVacationState = inVacations.orElse(false);
+            return shopElasticRepository.findAllByNameContainingAndCreatedAtAfterAndCreatedAtBeforeAndInVacationsEquals(
+                    name.get(), after, before, inVacationState, pageable
+            );
         }
+
+        return getFilteredShopsByCriteria(inVacations, createdAfter, createdBefore, pageable);
+    }
+
+    private Page<Shop> getFilteredShopsByCriteria(
+            Optional<Boolean> inVacations,
+            Optional<String> createdAfter,
+            Optional<String> createdBefore,
+            Pageable pageable
+    ) {
         if (inVacations.isPresent() && createdBefore.isPresent() && createdAfter.isPresent()) {
             return shopRepository.findByInVacationsAndCreatedAtGreaterThanAndCreatedAtLessThan(
-                    inVacations.get(),
-                    LocalDate.parse(createdAfter.get()),
-                    LocalDate.parse(createdBefore.get()),
-                    pageable
+                    inVacations.get(), LocalDate.parse(createdAfter.get()), LocalDate.parse(createdBefore.get()), pageable
             );
         }
 
@@ -156,28 +161,44 @@ public class ShopService {
             );
         }
 
-        if (inVacations.isPresent()) {
-            return shopRepository.findByInVacations(inVacations.get(), pageable);
-        }
-
         if (createdBefore.isPresent() && createdAfter.isPresent()) {
             return shopRepository.findByCreatedAtBetween(
                     LocalDate.parse(createdAfter.get()), LocalDate.parse(createdBefore.get()), pageable
             );
         }
 
-        if (createdBefore.isPresent()) {
-            return shopRepository.findByCreatedAtLessThan(
-                    LocalDate.parse(createdBefore.get()), pageable
-            );
-        }
+        return createdAfter.map(after -> shopRepository.findByCreatedAtGreaterThan(
+                LocalDate.parse(after), pageable
+        )).orElse(null);
+    }
 
-        if (createdAfter.isPresent()) {
-            return shopRepository.findByCreatedAtGreaterThan(
-                    LocalDate.parse(createdAfter.get()), pageable
-            );
-        }
+    // Validation Methods
 
-        return null;
+    private void validateOpeningHours(List<OpeningHoursShop> openingHours) {
+        Map<Long, List<OpeningHoursShop>> openingHoursByDay = openingHours.stream()
+                .collect(Collectors.groupingBy(OpeningHoursShop::getDay));
+
+        openingHoursByDay.values().forEach(this::checkForOverlap);
+    }
+
+    private void checkForOverlap(List<OpeningHoursShop> dayOpeningHours) {
+        List<OpeningHoursShop> sortedHours = dayOpeningHours.stream()
+                .sorted(Comparator.comparing(OpeningHoursShop::getOpenAt))
+                .toList();
+
+        for (int i = 0; i < sortedHours.size() - 1; i++) {
+            OpeningHoursShop current = sortedHours.get(i);
+            OpeningHoursShop next = sortedHours.get(i + 1);
+
+            if (isOverlapping(current, next)) {
+                throw new IllegalArgumentException(
+                        String.format("Overlapping hours on day %d: %s and %s", current.getDay(), current, next)
+                );
+            }
+        }
+    }
+
+    private boolean isOverlapping(OpeningHoursShop hours1, OpeningHoursShop hours2) {
+        return !hours1.getCloseAt().isBefore(hours2.getOpenAt());
     }
 }

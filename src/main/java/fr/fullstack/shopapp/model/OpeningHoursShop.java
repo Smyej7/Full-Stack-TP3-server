@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.time.LocalTime;
 
@@ -14,6 +16,7 @@ public class OpeningHoursShop {
     @Column(nullable = false)
     @JsonFormat(pattern = "HH:mm:ss")
     @NotNull(message = "CloseAt may not be null")
+    @Field(type = FieldType.Long)
     private LocalTime closeAt;
 
     @Column(nullable = false)
@@ -29,6 +32,7 @@ public class OpeningHoursShop {
     @Column(nullable = false)
     @JsonFormat(pattern = "HH:mm:ss")
     @NotNull(message = "OpenAt may not be null")
+    @Field(type = FieldType.Long)
     private LocalTime openAt;
 
     public LocalTime getCloseAt() {

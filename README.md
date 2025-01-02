@@ -1,17 +1,7 @@
 # Shop serveur
 
-## Lancer l'application avec mvn
+http://localhost:8080
 
-A la racine du répertoire, il faut exécuter : `mvn spring-boot:run`.
+Pour Lancer l'application avec Docker, vous n'avez qu'a exécuter la commande `docker compose up`
 
-L'application est disponible ici : http://localhost:8080.
-
-## Lancer l'application avec Docker
-
-A la racine du répertoire, il faut exécuter : `docker compose up`.
-
-L'application est disponible ici : http://localhost:8080.
-
-## Swagger
-
-Une [documentation swagger](http://localhost:8080/swagger-ui/#/shop-controller) est disponible.
+La documentation swagger est disponible sur http://localhost:8080/swagger-ui/#/shop-controller
