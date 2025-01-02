@@ -32,6 +32,7 @@ public class Shop {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     @JsonFormat(pattern = "yyyy-MM-dd")
+    @Field(type = FieldType.Date)
     private LocalDate createdAt;
 
     @Id
@@ -59,6 +60,10 @@ public class Shop {
     @OneToMany(mappedBy = "shop", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Product> products = new ArrayList<Product>();
+
+    @Formula(value = "(SELECT COUNT(DISTINCT pc.category_id) FROM products_categories pc WHERE pc.product_id IN " +
+            "(SELECT p.id FROM products p WHERE p.shop_id = id))")
+    private Long nbCategories;
 
     public LocalDate getCreatedAt() {
         return createdAt;
@@ -110,5 +115,13 @@ public class Shop {
 
     public void setProducts(List<Product> products) {
         this.products = products;
+    }
+
+    public Long getNbCategories() {
+        return nbCategories;
+    }
+
+    public void setNbCategories(Long nbCategories) {
+        this.nbCategories = nbCategories;
     }
 }
