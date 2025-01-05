@@ -78,7 +78,7 @@ public class ProductController {
             @ParameterObject Pageable pageable,
             @Parameter(description = "Id of the shop") @RequestParam Optional<Long> shopId,
             @Parameter(description = "Id of the category") @RequestParam Optional<Long> categoryId) {
-        return ResponseEntity.ok(service.getShopProductList(shopId, categoryId, pageable));
+        return ResponseEntity.ok(service.findProductsByShopAndCategory(shopId, categoryId, pageable));
     }
 
     @Operation(summary = "Update a product", description = "Update a product")
