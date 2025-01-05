@@ -16,6 +16,9 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +34,7 @@ public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Field(type = FieldType.Long)
     private long id;
 
     @OneToMany(cascade = {CascadeType.ALL}, orphanRemoval = true)

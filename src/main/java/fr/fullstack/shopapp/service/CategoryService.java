@@ -35,7 +35,7 @@ public class CategoryService {
         try {
             Category category = getCategory(id);
             // delete nested relations with products
-            deleteNestedRelations(category);
+            unlinkProductsFromCategory(category);
             categoryRepository.deleteById(id);
         } catch (Exception e) {
             throw new Exception(e.getMessage());
@@ -63,7 +63,7 @@ public class CategoryService {
         }
     }
 
-    private void deleteNestedRelations(Category category) {
+    private void unlinkProductsFromCategory(Category category) {
         List<Product> products = category.getProducts();
         for (int i = 0; i < products.size(); i++) {
             Product product = products.get(i);
