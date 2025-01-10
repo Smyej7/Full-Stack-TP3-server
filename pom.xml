@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>fr.full-stack</groupId>
-	<artifactId>shop-app</artifactId>
+	<artifactId>shop-application</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>shop-app</name>
+	<name>shop-application</name>
 	<description>Shop server</description>
 	<properties>
 		<java.version>23</java.version>

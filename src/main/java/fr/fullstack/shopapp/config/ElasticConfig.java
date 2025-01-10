@@ -9,6 +9,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import fr.fullstack.shopapp.converter.LocalTimeConverterFromLong;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.elasticsearch.core.convert.ElasticsearchCustomConversions;
@@ -18,10 +19,13 @@ import java.util.Arrays;
 @Configuration
 public class ElasticConfig {
 
+    @Value("${elastic.host}")
+    private String elasticHost;
+
     @Bean
     public ElasticsearchClient elasticsearchClient() {
         RestClient restClient = RestClient.builder(
-                new HttpHost("localhost", 9200, "http")
+                new HttpHost(elasticHost, 9200, "http")
         ).build();
         RestClientTransport transport = new RestClientTransport(
                 restClient, new JacksonJsonpMapper()
